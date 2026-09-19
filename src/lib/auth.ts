@@ -48,10 +48,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      // If `user` is provided, it's the initial sign-in phase.
       if (user) {
-        token.role = user.role
-        token.id = user.id
+        if (account?.provider === "google" && user.email) {
+          // Identify user by email in PostgreSQL
+          let dbUser = await prisma.user.findUnique({
+            where: { email: user.email }
+          })
+          
+          // If the user doesn't exist, securely create them with the default CITIZEN role
+          if (!dbUser) {
+            dbUser = await prisma.user.create({
+              data: {
+                email: user.email,
+                name: user.name || "",
+                image: user.image || "",
+                role: "CITIZEN",
+              }
+            })
+          }
+          
+          // Attach database role and ID to token
+          token.role = dbUser.role
+          token.id = dbUser.id
+        } else {
+          // Credentials login already populated user.role
+          token.role = user.role
+          token.id = user.id
+        }
       }
       return token
     },

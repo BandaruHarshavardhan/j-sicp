@@ -12,8 +12,10 @@ export default async function DashboardRedirect() {
 
   if (role === "CITIZEN") {
     redirect("/dashboard/citizen")
-  } else if (role === "INSTITUTION" || role === "INDUSTRY") {
-    redirect("/dashboard/organization")
+  } else if (role === "INSTITUTION") {
+    redirect("/dashboard/institution")
+  } else if (role === "INDUSTRY") {
+    redirect("/dashboard/industry")
   } else if (role === "ADMIN") {
     redirect("/dashboard/admin")
   } else {
