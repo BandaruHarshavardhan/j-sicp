@@ -11,6 +11,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const [isDemoFallback, setIsDemoFallback] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,6 +28,11 @@ export default function ForgotPasswordPage() {
 
       if (!res.ok) {
         throw new Error("Failed to request password reset")
+      }
+
+      const data = await res.json()
+      if (data.isDemoFallback) {
+        setIsDemoFallback(true)
       }
 
       // Always show success to prevent email enumeration
@@ -58,14 +64,31 @@ export default function ForgotPasswordPage() {
 
             {success ? (
               <div className="text-center space-y-4">
-                <div className="flex justify-center">
-                  <CheckCircle2 className="h-12 w-12 text-green-500" />
-                </div>
-                <h3 className="text-lg font-medium text-slate-900">Check your email</h3>
-                <p className="text-sm text-slate-500">
-                  If an account exists for {email}, a password reset link has been sent. 
-                  Please check your inbox (and spam folder).
-                </p>
+                {isDemoFallback ? (
+                  <div className="mb-6 p-5 bg-blue-50 border border-blue-200 rounded-xl">
+                    <h4 className="font-bold text-blue-900 mb-2">Demo Mode Active</h4>
+                    <p className="text-sm text-blue-700 mb-4">
+                      Email delivery is disabled for this demo account. Demo password reset is available for the configured demo account. Use the demo reset option.
+                    </p>
+                    <a
+                      href="/api/auth/demo-reset-redirect"
+                      className="inline-flex justify-center items-center py-2.5 px-4 w-full border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition"
+                    >
+                      Open Demo Reset
+                    </a>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-center">
+                      <CheckCircle2 className="h-12 w-12 text-green-500" />
+                    </div>
+                    <h3 className="text-lg font-medium text-slate-900">Check your email</h3>
+                    <p className="text-sm text-slate-500">
+                      If an account exists for {email}, a password reset link has been sent. 
+                      Please check your inbox (and spam folder).
+                    </p>
+                  </>
+                )}
                 <div className="pt-4">
                   <Link 
                     href="/auth/login"

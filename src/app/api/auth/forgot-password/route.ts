@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { Resend } from "resend";
@@ -11,53 +12,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    // Lookup user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = await prisma.user.findUnique({ where: { email } });
 
-    // To prevent enumeration, we always return success immediately if the user isn't found.
-    // However, if the user doesn't exist, we just skip sending the email.
     if (!user || !user.password) {
-      return NextResponse.json({ success: true }); // Assume passwordless or non-existent
+      // Demo fallback check even if user doesn't exist, to prevent timing/response enumeration?
+      // Wait, if user doesn't exist, we don't generate a token. We should just return success.
+      return NextResponse.json({ success: true }); 
     }
 
-    // Generate secure random token
     const rawToken = crypto.randomBytes(32).toString("hex");
-    
-    // Hash token for database storage
     const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-    
-    // Token valid for 1 hour
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    // Invalidate any existing tokens for this user
-    await prisma.passwordResetToken.deleteMany({
-      where: { userId: user.id },
-    });
-
-    // Save the new hashed token
+    await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
     await prisma.passwordResetToken.create({
-      data: {
-        tokenHash,
-        userId: user.id,
-        expiresAt,
-      },
+      data: { tokenHash, userId: user.id, expiresAt },
     });
 
-    // Send the email with the raw token
-    // If RESEND_API_KEY is not configured, we just return success without sending email in dev (to prevent crash)
     console.log("[Forgot Password] Checking Resend Config...");
-    console.log("[Forgot Password] RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY);
-    
+    let resendFailed = false;
+
     if (process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const appUrl = process.env.NEXTAUTH_URL || "https://j-scip.vercel.app";
       const resetLink = `${appUrl}/auth/reset-password?token=${rawToken}`;
       const sender = process.env.EMAIL_FROM || "J-SCIP <noreply@j-scip.vercel.app>";
-
-      console.log("[Forgot Password] EMAIL_FROM value:", sender);
-      console.log("[Forgot Password] Attempting to send email via Resend SDK...");
 
       const { data, error: resendError } = await resend.emails.send({
         from: sender,
@@ -77,11 +56,34 @@ export async function POST(req: NextRequest) {
           name: resendError.name,
           message: resendError.message,
         });
+        resendFailed = true;
       } else {
         console.log("[Forgot Password] Resend API Success. Email ID:", data?.id);
       }
     } else {
-      console.log("[Forgot Password] Skipping email delivery: RESEND_API_KEY is not set.");
+      resendFailed = true; // No key = failed to send
+    }
+
+    // SAFE DEMO MODE FALLBACK
+    const isDemoMode = process.env.PASSWORD_RESET_DEMO_MODE === "true";
+    const demoEmail = process.env.PASSWORD_RESET_DEMO_EMAIL;
+    
+    if (isDemoMode && demoEmail && email === demoEmail && resendFailed) {
+      console.log("[Forgot Password] Triggering Safe Demo Reset Fallback.");
+      
+      // Store token in HttpOnly cookie to securely pass it to the redirect route
+      const cookieStore = await cookies();
+      cookieStore.set({
+        name: "demo_reset_token",
+        value: rawToken,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 600, // 10 minutes
+        path: "/",
+      });
+
+      return NextResponse.json({ success: true, isDemoFallback: true });
     }
 
     // Generic success response
