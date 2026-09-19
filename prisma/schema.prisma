@@ -1,0 +1,301 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User role enum equivalent for SQLite (since SQLite doesn't support enums natively, we use String with app-level validation)
+// Roles: CITIZEN, INSTITUTION, INDUSTRY, ADMIN
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // For credentials auth
+  role          String    @default("CITIZEN") // CITIZEN, INSTITUTION, INDUSTRY, ADMIN
+  phone         String?
+  organization  String?
+  profileTags   String?   // JSON string of tags (skills, departments, sector)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  challenges    Challenge[] @relation("ReportedChallenges")
+  industrySupports IndustrySupport[]
+  progressUpdates ProgressUpdate[]
+  
+  universityCollaborations Collaboration[] @relation("UniversityCollaborations")
+  industryCollaborations   Collaboration[] @relation("IndustryCollaborations")
+  collaborationMessages    CollaborationMessage[]
+  collaborationContacts    CollaborationContact[]
+  collaborationActivities  CollaborationActivity[]
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  
+  access_token       String?  
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Status: SUBMITTED, UNDER_REVIEW, ASSIGNED, SOLUTION_PROPOSED, INDUSTRY_SUPPORT_PENDING, INDUSTRY_ACCEPTED, IN_PROGRESS, VERIFICATION, RESOLVED
+model Challenge {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String?
+  subcategory String?
+  severity    String?
+  priority    String?
+  location    String
+  address     String?
+  locality    String?
+  city        String?
+  district    String?
+  state       String?
+  pincode     String?
+  latitude    Float?
+  longitude   Float?
+  imageUrl    String?
+  videoUrl    String?
+  status      String   @default("SUBMITTED")
+  
+  reporterId  String
+  reporter    User     @relation("ReportedChallenges", fields: [reporterId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  aiAnalysis  AIAnalysis?
+  solutions   SolutionProposal[]
+  collaborations Collaboration[]
+}
+
+model AIAnalysis {
+  id                   String   @id @default(cuid())
+  challengeId          String   @unique
+  challenge            Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  category             String
+  subcategory          String
+  severity             String
+  priority             String
+  problemBrief         String
+  impact               String
+  suggestedStakeholders String // Stored as JSON string array
+  suggestedSolutions    String // Stored as JSON string array
+  priorityReason       String?
+  isDuplicate          Boolean  @default(false)
+  duplicateOfId        String?
+  createdAt            DateTime @default(now())
+}
+
+model SolutionProposal {
+  id              String   @id @default(cuid())
+  challengeId     String
+  challenge       Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  organizationId  String   // In a real app this might point to an Organization model, for prototype it can just be User ID if user is organization
+  title           String
+  description     String
+  resources       String
+  estimatedCost   String?
+  timeline        String
+  expectedOutcome String
+  status          String   @default("PROPOSED") // PROPOSED, INDUSTRY_SUPPORT_PENDING, INDUSTRY_ACCEPTED, IN_PROGRESS, VERIFICATION, RESOLVED
+  documentUrl     String?
+  pptUrl          String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  progressUpdates ProgressUpdate[]
+  industrySupport IndustrySupport?
+  aiSolutionAnalysis AISolutionAnalysis?
+  aiImplementationPlan AIImplementationPlan?
+  aiProgressSummary AIProgressSummary?
+  collaboration   Collaboration?
+  projectOutcome  ProjectOutcome?
+}
+
+model ProgressUpdate {
+  id          String   @id @default(cuid())
+  solutionId  String
+  solution    SolutionProposal @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userRole    String?
+  title       String?
+  description String
+  percentage  Int      @default(0)
+  milestone   String?
+  status      String?
+  nextSteps   String?
+  issuesRisks String?
+  evidenceUrl String?
+  createdAt   DateTime @default(now())
+}
+
+model IndustrySupport {
+  id              String           @id @default(cuid())
+  solutionId      String           @unique
+  solution        SolutionProposal @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  industryId      String
+  industry        User             @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  contactPerson   String
+  supportType     String
+  resources       String
+  technology      String?
+  funding         String?
+  personnelCount  String?
+  contribution    String
+  startDate       String
+  completionDate  String
+  remarks         String?
+  documentUrl     String?
+  createdAt       DateTime         @default(now())
+}
+
+model AISolutionAnalysis {
+  id                  String   @id @default(cuid())
+  solutionId          String   @unique
+  solution            SolutionProposal @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  problemAlignment    String
+  expectedImpact      String
+  feasibility         String
+  requiredResources   String
+  implementationRisks String
+  suggestedImprovements String
+  suggestedIndustries String // Stored as JSON string array
+  createdAt           DateTime @default(now())
+}
+
+model AIImplementationPlan {
+  id          String   @id @default(cuid())
+  solutionId  String   @unique
+  solution    SolutionProposal @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  roadmap     String   // JSON array of phases
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AIProgressSummary {
+  id               String   @id @default(cuid())
+  solutionId       String   @unique
+  solution         SolutionProposal @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  summary          String
+  completedMilestones String // JSON array
+  pendingMilestones   String // JSON array
+  risks               String // JSON array
+  nextAction          String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Collaboration {
+  id              String   @id @default(cuid())
+  challengeId     String
+  challenge       Challenge @relation(fields: [challengeId], references: [id])
+  solutionId      String   @unique
+  solution        SolutionProposal @relation(fields: [solutionId], references: [id])
+  universityId    String
+  university      User     @relation("UniversityCollaborations", fields: [universityId], references: [id])
+  industryId      String
+  industry        User     @relation("IndustryCollaborations", fields: [industryId], references: [id])
+  status          String   @default("ACTIVE") // PENDING, ACTIVE, IN_PROGRESS, VERIFICATION, COMPLETED, CLOSED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  messages        CollaborationMessage[]
+  contacts        CollaborationContact[]
+  activities      CollaborationActivity[]
+}
+
+model CollaborationMessage {
+  id               String   @id @default(cuid())
+  collaborationId  String
+  collaboration    Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  senderId         String
+  sender           User          @relation(fields: [senderId], references: [id])
+  message          String
+  createdAt        DateTime      @default(now())
+  readAt           DateTime?
+}
+
+model CollaborationContact {
+  id               String   @id @default(cuid())
+  collaborationId  String
+  collaboration    Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+  contactName      String
+  officialEmail    String
+  phone            String?
+  department       String?
+  updatedAt        DateTime      @updatedAt
+  
+  @@unique([collaborationId, userId])
+}
+
+model CollaborationActivity {
+  id               String   @id @default(cuid())
+  collaborationId  String
+  collaboration    Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  actorId          String
+  actor            User          @relation(fields: [actorId], references: [id])
+  actionType       String
+  description      String
+  createdAt        DateTime      @default(now())
+}
+
+model ProjectOutcome {
+  id                  String   @id @default(cuid())
+  solutionId          String   @unique
+  solution            SolutionProposal @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  
+  citizensBenefited   Int?
+  communitiesAffected Int?
+  districtsImpacted   Int?
+  
+  prototypesDeveloped Int?
+  solutionsDeployed   Int?
+  patentsGenerated    Int?
+  startupsCreated     Int?
+  researchProjects    Int?
+  technologyTransfers Int?
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
