@@ -47,13 +47,19 @@ export async function POST(req: NextRequest) {
 
     // Send the email with the raw token
     // If RESEND_API_KEY is not configured, we just return success without sending email in dev (to prevent crash)
+    console.log("[Forgot Password] Checking Resend Config...");
+    console.log("[Forgot Password] RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY);
+    
     if (process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const appUrl = process.env.NEXTAUTH_URL || "https://j-scip.vercel.app";
       const resetLink = `${appUrl}/auth/reset-password?token=${rawToken}`;
       const sender = process.env.EMAIL_FROM || "J-SCIP <noreply@j-scip.vercel.app>";
 
-      await resend.emails.send({
+      console.log("[Forgot Password] EMAIL_FROM value:", sender);
+      console.log("[Forgot Password] Attempting to send email via Resend SDK...");
+
+      const { data, error: resendError } = await resend.emails.send({
         from: sender,
         to: email,
         subject: "Reset your J-SCIP password",
@@ -65,6 +71,17 @@ export async function POST(req: NextRequest) {
           <p>If you did not request this, you can safely ignore this email.</p>
         `,
       });
+
+      if (resendError) {
+        console.error("[Forgot Password] Resend API Error:", {
+          name: resendError.name,
+          message: resendError.message,
+        });
+      } else {
+        console.log("[Forgot Password] Resend API Success. Email ID:", data?.id);
+      }
+    } else {
+      console.log("[Forgot Password] Skipping email delivery: RESEND_API_KEY is not set.");
     }
 
     // Generic success response
