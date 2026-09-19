@@ -14,22 +14,35 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
+  const [showDemo, setShowDemo] = useState(false)
+  const [demoEmail, setDemoEmail] = useState("")
+  const [demoPassword, setDemoPassword] = useState("")
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    await executeLogin(email, password, "/")
+  }
+
+  const handleDemoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await executeLogin(demoEmail, demoPassword, "/dashboard/admin")
+  }
+
+  const executeLogin = async (loginEmail: string, loginPassword: string, redirectUrl: string) => {
     setIsLoading(true)
     setError("")
 
     try {
       const res = await signIn("credentials", {
         redirect: false,
-        email,
-        password,
+        email: loginEmail,
+        password: loginPassword,
       })
 
       if (res?.error) {
         setError("Invalid email or password")
       } else {
-        router.push("/")
+        router.push(redirectUrl)
         router.refresh()
       }
     } catch (err) {
@@ -50,14 +63,14 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-slate-500 text-center">Log in to your J-SICP account</p>
           </div>
           
-          <div className="p-8">
+          <div className="p-8 pt-6">
             {error && (
               <div className="mb-6 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
                 <div className="relative">
@@ -127,8 +140,64 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            <div className="mt-8">
+              {!showDemo ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDemo(true)}
+                  className="w-full flex flex-col justify-center items-center py-3 px-4 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100 transition"
+                >
+                  <span className="font-bold text-slate-700">Government Demo Login</span>
+                  <span className="text-xs text-slate-500 mt-1">For SIH Demonstration</span>
+                </button>
+              ) : (
+                <form onSubmit={handleDemoSubmit} className="p-5 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 space-y-4">
+                  <div className="text-center mb-4">
+                    <h3 className="font-bold text-slate-800">Government Demo Mode</h3>
+                    <p className="text-xs text-slate-500 mt-1">SIH Presentation Authentication</p>
+                  </div>
+                  <div>
+                    <input
+                      type="email"
+                      required
+                      value={demoEmail}
+                      onChange={(e) => setDemoEmail(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-800 sm:text-sm"
+                      placeholder="Demo Email"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="password"
+                      required
+                      value={demoPassword}
+                      onChange={(e) => setDemoPassword(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-800 sm:text-sm"
+                      placeholder="Demo Password"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDemo(false)}
+                      className="flex-1 py-2 px-4 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="flex-1 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-slate-800 hover:bg-slate-900 transition"
+                    >
+                      {isLoading ? "Authenticating..." : "Login"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
             
-            <div className="mt-8 text-center text-sm">
+            <div className="mt-8 text-center text-sm border-t border-slate-100 pt-6">
               <span className="text-slate-500">Don't have an account? </span>
               <Link href="/auth/register" className="font-medium text-secondary hover:text-accent transition">
                 Register now

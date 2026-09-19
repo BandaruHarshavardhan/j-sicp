@@ -21,8 +21,51 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null
         }
         
+        const email = credentials.email as string
+        const password = credentials.password as string
+
+        // SIH Demo Government Login Logic
+        const demoEmail = process.env.DEMO_GOVERNMENT_EMAIL
+        const demoPassword = process.env.DEMO_GOVERNMENT_PASSWORD
+
+        if (demoEmail && demoPassword && email === demoEmail) {
+          if (password === demoPassword) {
+            let dbUser = await prisma.user.findUnique({
+              where: { email: demoEmail }
+            })
+            
+            if (!dbUser) {
+              const hashedPassword = await bcrypt.hash(demoPassword, 10)
+              dbUser = await prisma.user.create({
+                data: {
+                  email: demoEmail,
+                  name: "Government Official",
+                  role: "ADMIN",
+                  password: hashedPassword
+                }
+              })
+            } else if (dbUser.role !== "ADMIN") {
+              dbUser = await prisma.user.update({
+                where: { email: demoEmail },
+                data: { role: "ADMIN" }
+              })
+            }
+            
+            return {
+              id: dbUser.id,
+              email: dbUser.email,
+              name: dbUser.name,
+              role: dbUser.role,
+            }
+          } else {
+            // Reject incorrect password for the demo account immediately
+            return null
+          }
+        }
+
+        // Standard user flow
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string }
+          where: { email }
         })
 
         if (!user || !user.password) {
