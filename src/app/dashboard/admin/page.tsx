@@ -12,35 +12,42 @@ import {
 } from "lucide-react"
 
 export default async function AdminDashboardOverview() {
-  const challengesCount = await prisma.challenge.count()
-  const underReviewCount = await prisma.challenge.count({ where: { status: "UNDER_REVIEW" } })
-  const assignedCount = await prisma.challenge.count({ where: { status: "ASSIGNED" } })
-  const proposedCount = await prisma.solutionProposal.count({ where: { status: "PROPOSED" } })
-  const supportedCount = await prisma.industrySupport.count()
-  const inProgressCount = await prisma.collaboration.count({ where: { status: "IN_PROGRESS" } })
-  const resolvedCount = await prisma.challenge.count({ where: { status: "RESOLVED" } })
+  const [
+    challengesCount,
+    underReviewCount,
+    assignedCount,
+    proposedCount,
+    supportedCount,
+    inProgressCount,
+    resolvedCount,
+    challengesByDomainRaw,
+    challengesByStatusRaw,
+    allChallenges,
+    activeCollaborationsCount
+  ] = await Promise.all([
+    prisma.challenge.count(),
+    prisma.challenge.count({ where: { status: "UNDER_REVIEW" } }),
+    prisma.challenge.count({ where: { status: "ASSIGNED" } }),
+    prisma.solutionProposal.count({ where: { status: "PROPOSED" } }),
+    prisma.industrySupport.count(),
+    prisma.collaboration.count({ where: { status: "IN_PROGRESS" } }),
+    prisma.challenge.count({ where: { status: "RESOLVED" } }),
+    prisma.challenge.groupBy({ by: ['category'], _count: true }),
+    prisma.challenge.groupBy({ by: ['status'], _count: true }),
+    prisma.challenge.findMany({ select: { district: true, location: true } }),
+    prisma.collaboration.count()
+  ])
 
   // Domain analytics
-  const challengesByDomainRaw = await prisma.challenge.groupBy({
-    by: ['category'],
-    _count: true
-  })
   const challengesByDomain = challengesByDomainRaw.map(d => ({
     name: d.category || 'Uncategorized',
     count: d._count
   })).sort((a, b) => b.count - a.count).slice(0, 5)
 
   // Status analytics
-  const challengesByStatusRaw = await prisma.challenge.groupBy({
-    by: ['status'],
-    _count: true
-  })
 
   // District analytics
   // To handle challenges that have GPS (district) vs those that only have manual location
-  const allChallenges = await prisma.challenge.findMany({
-    select: { district: true, location: true }
-  })
   
   const districtCounts: Record<string, number> = {}
   for (const c of allChallenges) {
@@ -70,7 +77,7 @@ export default async function AdminDashboardOverview() {
         <StatCard title="Industry Supported" value={supportedCount} icon={Building2} color="emerald" />
         <StatCard title="In Implementation" value={inProgressCount} icon={Activity} color="amber" />
         <StatCard title="Resolved" value={resolvedCount} icon={CheckCircle2} color="green" />
-        <StatCard title="Active Collaborations" value={await prisma.collaboration.count()} icon={Handshake} color="cyan" />
+        <StatCard title="Active Collaborations" value={activeCollaborationsCount} icon={Handshake} color="cyan" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
