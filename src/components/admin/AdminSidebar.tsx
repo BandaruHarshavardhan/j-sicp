@@ -19,14 +19,14 @@ export function AdminSidebar() {
   
   const navItems = [
     { name: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { name: "Challenges", href: "/dashboard/admin/challenges", icon: FileText },
-    { name: "Universities", href: "/dashboard/admin/universities", icon: GraduationCap },
-    { name: "Industries", href: "/dashboard/admin/industries", icon: Building2 },
+    { name: "Challenges", href: "/dashboard/admin/challenges", icon: FileText, prefetch: false },
+    { name: "Universities", href: "/dashboard/admin/universities", icon: GraduationCap, prefetch: false },
+    { name: "Industries", href: "/dashboard/admin/industries", icon: Building2, prefetch: false },
     { name: "Collaborations", href: "/dashboard/admin/collaborations", icon: Handshake },
     { name: "Projects", href: "/dashboard/admin/projects", icon: Activity },
     { name: "Verification", href: "/dashboard/admin/verification", icon: CheckSquare },
     { name: "Impact & Outcomes", href: "/dashboard/admin/impact", icon: Globe2 },
-    { name: "Notifications", href: "/dashboard/admin/notifications", icon: Bell },
+    { name: "Notifications", href: "/dashboard/admin/notifications", icon: Bell, prefetch: false },
   ]
 
   return (
@@ -41,6 +41,7 @@ export function AdminSidebar() {
             <Link
               key={item.name}
               href={item.href}
+              prefetch={item.prefetch}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
                 isActive 
                   ? "bg-primary text-white" 
