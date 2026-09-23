@@ -24,30 +24,28 @@ export default async function AdminDashboardOverview() {
 
   const tDbStart = performance.now();
   
-  // Measure each query individually for diagnostics
-  const p1Start = performance.now();
-  const proposedCount = await prisma.solutionProposal.count({ where: { status: "PROPOSED" } });
-  const p1End = performance.now();
+  const [
+    q1Res,
+    q2Res,
+    q3Res,
+    q4Res,
+    q5Res,
+    q6Res
+  ] = await Promise.all([
+    (async () => { const s = performance.now(); const r = await prisma.solutionProposal.count({ where: { status: "PROPOSED" } }); return {r, t: performance.now() - s}; })(),
+    (async () => { const s = performance.now(); const r = await prisma.industrySupport.count(); return {r, t: performance.now() - s}; })(),
+    (async () => { const s = performance.now(); const r = await prisma.challenge.groupBy({ by: ['category'], _count: true }); return {r, t: performance.now() - s}; })(),
+    (async () => { const s = performance.now(); const r = await prisma.challenge.groupBy({ by: ['status'], _count: true }); return {r, t: performance.now() - s}; })(),
+    (async () => { const s = performance.now(); const r = await prisma.challenge.findMany({ select: { district: true, location: true } }); return {r, t: performance.now() - s}; })(),
+    (async () => { const s = performance.now(); const r = await prisma.collaboration.groupBy({ by: ['status'], _count: true }); return {r, t: performance.now() - s}; })()
+  ]);
 
-  const p2Start = performance.now();
-  const supportedCount = await prisma.industrySupport.count();
-  const p2End = performance.now();
-
-  const p3Start = performance.now();
-  const challengesByDomainRaw = await prisma.challenge.groupBy({ by: ['category'], _count: true });
-  const p3End = performance.now();
-
-  const p4Start = performance.now();
-  const challengesByStatusRaw = await prisma.challenge.groupBy({ by: ['status'], _count: true });
-  const p4End = performance.now();
-
-  const p5Start = performance.now();
-  const allChallenges = await prisma.challenge.findMany({ select: { district: true, location: true } });
-  const p5End = performance.now();
-
-  const p6Start = performance.now();
-  const collaborationsByStatusRaw = await prisma.collaboration.groupBy({ by: ['status'], _count: true });
-  const p6End = performance.now();
+  const proposedCount = q1Res.r;
+  const supportedCount = q2Res.r;
+  const challengesByDomainRaw = q3Res.r;
+  const challengesByStatusRaw = q4Res.r;
+  const allChallenges = q5Res.r;
+  const collaborationsByStatusRaw = q6Res.r;
 
   const tDbEnd = performance.now();
 
@@ -86,12 +84,12 @@ export default async function AdminDashboardOverview() {
   const timings = {
     totalRequestSoFar: performance.now() - t0,
     authDuration: tAuthEnd - tAuthStart,
-    q1_proposed: p1End - p1Start,
-    q2_supported: p2End - p2Start,
-    q3_groupCat: p3End - p3Start,
-    q4_groupStatus: p4End - p4Start,
-    q5_findMany: p5End - p5Start,
-    q6_collabStatus: p6End - p6Start,
+    q1_proposed: q1Res.t,
+    q2_supported: q2Res.t,
+    q3_groupCat: q3Res.t,
+    q4_groupStatus: q4Res.t,
+    q5_findMany: q5Res.t,
+    q6_collabStatus: q6Res.t,
     totalDb: tDbEnd - tDbStart,
     aiApi: 0,
     renderStart: tRenderStart
