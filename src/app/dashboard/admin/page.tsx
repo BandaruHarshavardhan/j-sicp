@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation"
+import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { 
   FileText, 
@@ -10,23 +12,44 @@ import {
   AlertTriangle,
   Bot
 } from "lucide-react"
+import Link from "next/link"
 
 export default async function AdminDashboardOverview() {
-  const [
-    proposedCount,
-    supportedCount,
-    challengesByDomainRaw,
-    challengesByStatusRaw,
-    allChallenges,
-    collaborationsByStatusRaw
-  ] = await Promise.all([
-    prisma.solutionProposal.count({ where: { status: "PROPOSED" } }),
-    prisma.industrySupport.count(),
-    prisma.challenge.groupBy({ by: ['category'], _count: true }),
-    prisma.challenge.groupBy({ by: ['status'], _count: true }),
-    prisma.challenge.findMany({ select: { district: true, location: true } }),
-    prisma.collaboration.groupBy({ by: ['status'], _count: true })
-  ])
+  const t0 = performance.now();
+  
+  // Measure auth
+  const tAuthStart = performance.now();
+  const session = await auth();
+  const tAuthEnd = performance.now();
+
+  const tDbStart = performance.now();
+  
+  // Measure each query individually for diagnostics
+  const p1Start = performance.now();
+  const proposedCount = await prisma.solutionProposal.count({ where: { status: "PROPOSED" } });
+  const p1End = performance.now();
+
+  const p2Start = performance.now();
+  const supportedCount = await prisma.industrySupport.count();
+  const p2End = performance.now();
+
+  const p3Start = performance.now();
+  const challengesByDomainRaw = await prisma.challenge.groupBy({ by: ['category'], _count: true });
+  const p3End = performance.now();
+
+  const p4Start = performance.now();
+  const challengesByStatusRaw = await prisma.challenge.groupBy({ by: ['status'], _count: true });
+  const p4End = performance.now();
+
+  const p5Start = performance.now();
+  const allChallenges = await prisma.challenge.findMany({ select: { district: true, location: true } });
+  const p5End = performance.now();
+
+  const p6Start = performance.now();
+  const collaborationsByStatusRaw = await prisma.collaboration.groupBy({ by: ['status'], _count: true });
+  const p6End = performance.now();
+
+  const tDbEnd = performance.now();
 
   const getChallengeStatusCount = (status: string) => 
     challengesByStatusRaw.find(c => c.status === status)?._count || 0;
@@ -57,6 +80,22 @@ export default async function AdminDashboardOverview() {
     const d = c.district || c.location.split(',')[0].trim() || 'Unknown District'
     districtCounts[d] = (districtCounts[d] || 0) + 1
   }
+
+  const tRenderStart = performance.now();
+  
+  const timings = {
+    totalRequestSoFar: performance.now() - t0,
+    authDuration: tAuthEnd - tAuthStart,
+    q1_proposed: p1End - p1Start,
+    q2_supported: p2End - p2Start,
+    q3_groupCat: p3End - p3Start,
+    q4_groupStatus: p4End - p4Start,
+    q5_findMany: p5End - p5Start,
+    q6_collabStatus: p6End - p6Start,
+    totalDb: tDbEnd - tDbStart,
+    aiApi: 0,
+    renderStart: tRenderStart
+  };
   
   const challengesByDistrict = Object.entries(districtCounts)
     .map(([name, count]) => ({ name, count }))
@@ -161,6 +200,7 @@ export default async function AdminDashboardOverview() {
             </div>
           </div>
         </div>
+        <div id="diagnostics-timing" style={{display: 'none'}} data-timings={JSON.stringify(timings)}></div>
       </div>
     </div>
   )
