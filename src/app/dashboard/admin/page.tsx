@@ -13,31 +13,34 @@ import {
 
 export default async function AdminDashboardOverview() {
   const [
-    challengesCount,
-    underReviewCount,
-    assignedCount,
     proposedCount,
     supportedCount,
-    inProgressCount,
-    resolvedCount,
     challengesByDomainRaw,
     challengesByStatusRaw,
     allChallenges,
-    activeCollaborationsCount
+    collaborationsByStatusRaw
   ] = await Promise.all([
-    prisma.challenge.count(),
-    prisma.challenge.count({ where: { status: "UNDER_REVIEW" } }),
-    prisma.challenge.count({ where: { status: "ASSIGNED" } }),
     prisma.solutionProposal.count({ where: { status: "PROPOSED" } }),
     prisma.industrySupport.count(),
-    prisma.collaboration.count({ where: { status: "IN_PROGRESS" } }),
-    prisma.challenge.count({ where: { status: "RESOLVED" } }),
     prisma.challenge.groupBy({ by: ['category'], _count: true }),
     prisma.challenge.groupBy({ by: ['status'], _count: true }),
     prisma.challenge.findMany({ select: { district: true, location: true } }),
-    prisma.collaboration.count()
+    prisma.collaboration.groupBy({ by: ['status'], _count: true })
   ])
 
+  const getChallengeStatusCount = (status: string) => 
+    challengesByStatusRaw.find(c => c.status === status)?._count || 0;
+
+  const getCollabStatusCount = (status: string) => 
+    collaborationsByStatusRaw.find(c => c.status === status)?._count || 0;
+
+  const challengesCount = challengesByStatusRaw.reduce((sum, item) => sum + item._count, 0);
+  const underReviewCount = getChallengeStatusCount("UNDER_REVIEW");
+  const assignedCount = getChallengeStatusCount("ASSIGNED");
+  const resolvedCount = getChallengeStatusCount("RESOLVED");
+  
+  const activeCollaborationsCount = collaborationsByStatusRaw.reduce((sum, item) => sum + item._count, 0);
+  const inProgressCount = getCollabStatusCount("IN_PROGRESS");
   // Domain analytics
   const challengesByDomain = challengesByDomainRaw.map(d => ({
     name: d.category || 'Uncategorized',
