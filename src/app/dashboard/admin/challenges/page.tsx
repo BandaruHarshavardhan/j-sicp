@@ -27,32 +27,32 @@ export default async function AdminChallengesPage({
     where.category = domain
   }
 
-  const challenges = await prisma.challenge.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      solutions: {
-        include: {
-          collaboration: {
-            include: {
-              university: { select: { name: true, organization: true } },
-              industry: { select: { name: true, organization: true } }
+  const [challenges, categoriesRaw] = await Promise.all([
+    prisma.challenge.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        solutions: {
+          include: {
+            collaboration: {
+              include: {
+                university: { select: { name: true, organization: true } },
+                industry: { select: { name: true, organization: true } }
+              }
+            },
+            progressUpdates: {
+              orderBy: { createdAt: 'desc' },
+              take: 1
             }
-          },
-          progressUpdates: {
-            orderBy: { createdAt: 'desc' },
-            take: 1
           }
         }
       }
-    }
-  })
-
-  // Get distinct categories for filter
-  const categoriesRaw = await prisma.challenge.findMany({
-    select: { category: true },
-    distinct: ['category']
-  })
+    }),
+    prisma.challenge.findMany({
+      select: { category: true },
+      distinct: ['category']
+    })
+  ])
   const categories = categoriesRaw.map(c => c.category).filter(Boolean)
 
   return (

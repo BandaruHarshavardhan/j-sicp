@@ -2,24 +2,24 @@ import { prisma } from "@/lib/prisma"
 import { Building2, Handshake, CheckCircle2 } from "lucide-react"
 
 export default async function AdminIndustriesPage() {
-  const industries = await prisma.user.findMany({
-    where: { role: "INDUSTRY" },
-    include: {
-      _count: {
-        select: {
-          industryCollaborations: true,
+  const [industries, supports] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: "INDUSTRY" },
+      include: {
+        _count: {
+          select: {
+            industryCollaborations: true,
+          }
+        },
+        industryCollaborations: {
+          include: { solution: true }
         }
-      },
-      industryCollaborations: {
-        include: { solution: true }
       }
-    }
-  })
-
-  // To count accepted solutions accurately: IndustrySupport
-  const supports = await prisma.industrySupport.findMany({
-    select: { industryId: true }
-  })
+    }),
+    prisma.industrySupport.findMany({
+      select: { industryId: true }
+    })
+  ])
 
   const enrichedIndustries = industries.map(ind => {
     const indSupports = supports.filter(s => s.industryId === ind.id)

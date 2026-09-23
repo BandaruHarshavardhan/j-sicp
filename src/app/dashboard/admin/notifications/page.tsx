@@ -3,11 +3,12 @@ import { prisma } from "@/lib/prisma"
 import { Bell, FileText, CheckCircle2, Building2, Activity } from "lucide-react"
 
 export default async function AdminNotificationsPage() {
-  // Fetch recent events across the platform
-  const challenges = await prisma.challenge.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { reporter: true } })
-  const solutions = await prisma.solutionProposal.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { challenge: true } })
-  const supports = await prisma.industrySupport.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { industry: true, solution: true } })
-  const activities = await prisma.collaborationActivity.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { actor: true, collaboration: { include: { challenge: true } } } })
+  const [challenges, solutions, supports, activities] = await Promise.all([
+    prisma.challenge.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { reporter: true } }),
+    prisma.solutionProposal.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { challenge: true } }),
+    prisma.industrySupport.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { industry: true, solution: true } }),
+    prisma.collaborationActivity.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { actor: true, collaboration: { include: { challenge: true } } } })
+  ])
 
   // Interleave and sort
   const allEvents = [

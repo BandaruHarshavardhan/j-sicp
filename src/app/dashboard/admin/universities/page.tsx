@@ -2,24 +2,24 @@ import { prisma } from "@/lib/prisma"
 import { GraduationCap, FileText, CheckCircle2 } from "lucide-react"
 
 export default async function AdminUniversitiesPage() {
-  const universities = await prisma.user.findMany({
-    where: { role: "INSTITUTION" },
-    include: {
-      _count: {
-        select: {
-          universityCollaborations: true,
+  const [universities, solutions] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: "INSTITUTION" },
+      include: {
+        _count: {
+          select: {
+            universityCollaborations: true,
+          }
+        },
+        universityCollaborations: {
+          include: { solution: true }
         }
-      },
-      universityCollaborations: {
-        include: { solution: true }
       }
-    }
-  })
-
-  // We need to fetch SolutionProposals where organizationId is the university id
-  const solutions = await prisma.solutionProposal.findMany({
-    select: { organizationId: true, status: true }
-  })
+    }),
+    prisma.solutionProposal.findMany({
+      select: { organizationId: true, status: true }
+    })
+  ])
 
   const enrichedUnivs = universities.map(u => {
     const univSolutions = solutions.filter(s => s.organizationId === u.id)
